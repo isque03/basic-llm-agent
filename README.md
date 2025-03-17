@@ -71,6 +71,30 @@ print(response)
 
 The repository includes both simple and advanced usage examples at the bottom of llm.py.
 
+## LLM Providers
+
+This project implements a flexible architecture that allows you to use different language model providers:
+
+- **OpenAIProvider**: Uses OpenAI's API (GPT models) for generating responses
+- **OllamaProvider**: Uses locally run Ollama models for generating responses
+
+You can easily specify which provider to use when creating an agent:
+
+```python
+from llm import Agent
+
+# Use Ollama (default)
+agent = Agent()
+
+# Or use OpenAI
+agent = Agent(provider="openai")
+
+# Generate a response
+response = agent.generate_response("Your prompt here")
+```
+
+Both providers implement the same interface, making it easy to switch between them or add new providers.
+
 ## License
 MIT License
 

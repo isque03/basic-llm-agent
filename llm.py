@@ -1,54 +1,115 @@
 import re
 from openai import OpenAI
+from ollama import chat
+from ollama import ChatResponse
 from dotenv import load_dotenv
 import os
 import logging
 from tools import (
-    check_environment_variable,
     web_search,
     calculator,
     market_data,
     extract_content,
 )
+from abc import ABC, abstractmethod
+
+
+class LLMProvider(ABC):
+    """Abstract base class for LLM providers."""
+
+    @abstractmethod
+    def generate(self, messages, model=None, temperature=0.3):
+        """Generate a response from the LLM given messages.
+
+        Args:
+            messages: List of message dictionaries with role and content
+            model: The model to use
+            temperature: Sampling temperature
+
+        Returns:
+            The generated text response
+        """
+        pass
+
+
+class OpenAIProvider(LLMProvider):
+    """OpenAI implementation of LLMProvider."""
+
+    def __init__(self, api_key):
+        self.client = OpenAI(api_key=api_key)
+        self.default_model = "gpt-4o-mini"
+
+    def generate(self, messages, model=None, temperature=0.1):
+        model = model or self.default_model
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content.strip()
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama implementation of LLMProvider."""
+
+    def __init__(self):
+        self.default_model = "llama3.1"
+
+    def generate(self, messages, model=None, temperature=0.2):
+        model = model or self.default_model
+        options = {"temperature": temperature, "max_tokens": 300}
+        response = chat(model=model, messages=messages, options=options)
+        # Extract content from Ollama response based on its API structure
+        if isinstance(response, ChatResponse):
+            return response.message.content.strip()
+        return response["message"]["content"].strip()
 
 
 class Agent:
-    def __init__(self):
+
+    def __init__(self, provider="ollama"):
         # Load environment variables from .env file
         load_dotenv()
 
         # Set up logging
         logging.basicConfig(level=logging.INFO)
+        logging.info("Initializing Agent with provider: %s", provider)
 
         # Initialize OpenAI API with the API key from environment variables
         self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        if not self.api_key and provider == "openai":
             logging.error(
                 "API key not found. Please set the OPENAI_API_KEY environment variable."
             )
-            raise ValueError("API key is required.")
+            raise ValueError("API key is required for OpenAI provider.")
 
-        self.client = OpenAI(api_key=self.api_key)
         # load prompt from system_prompt.txt
         with open("system_prompt.md", "r") as file:
             self.system_message = file.read().strip()
         self.messages = []
         self.messages.append({"role": "system", "content": self.system_message})
 
+        # Initialize the appropriate provider
+        if provider == "ollama":
+            # Note smaller ollama models appear to struggle to follow system instructions
+            self.llm_provider = OllamaProvider()
+            self.default_model = "llama3.1"
+        elif provider == "openai":
+            self.llm_provider = OpenAIProvider(api_key=self.api_key)
+            self.default_model = "gpt-4o-mini"
+        else:
+            logging.error("Unsupported provider. Use 'openai' or 'ollama'.")
+            raise ValueError("Unsupported provider. Use 'openai' or 'ollama'.")
+
     def generate_response(self, prompt):
         """Generate a response from the LLM given a prompt."""
         try:
             self.messages.append({"role": "user", "content": str(prompt)})
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=self.messages,
-                temperature=0.3,
+            response_content = self.llm_provider.generate(
+                messages=self.messages, model=self.default_model, temperature=0.3
             )
-            self.messages.append(
-                {"role": "assistant", "content": response.choices[0].message.content}
-            )
-            # Log the assistant's response
-            return response.choices[0].message.content.strip()
+            self.messages.append({"role": "assistant", "content": response_content})
+            return response_content
         except Exception as e:
             logging.error(f"Error generating response: {e}")
             return None
@@ -82,6 +143,10 @@ def parse_action_input_as_parameters(action_input):
     import shlex  # For proper shell-like argument parsing
     import ast
     import json
+
+    # check if action_input contains #, if so remove it and everything after it
+    if "#" in action_input:
+        action_input = action_input.split("#")[0].strip()
 
     # Handle JSON/dictionary-like inputs
     if action_input.strip().startswith("{") and action_input.strip().endswith("}"):
@@ -196,7 +261,10 @@ def agent_query(user_input, max_turns=20):
             logging.info(f"Agent interaction - Turn {num_turns}/{max_turns}")
 
             response = agent.generate_response(current_input)
-            print(f"Response from agent (Turn {num_turns}/{max_turns}):", response)
+            print(f"Turn {num_turns}/{max_turns}):")
+            logging.info(f"=== START OF RESPONSE ===")
+            logging.info(f"{response}")
+            logging.info(f"=== END OF RESPONSE ===")
 
             if not response:
                 logging.error("Failed to generate a response from the agent.")
@@ -218,6 +286,9 @@ def agent_query(user_input, max_turns=20):
                         result = known_actions[action](*args, **kwargs)
                     else:
                         result = known_actions[action]()
+                    logging.info(
+                        f"Executed tool action: '{action}' '{action_input}' with result: {str(result)}"
+                    )
                     user_input = str(result)
                 except Exception as e:
                     logging.error(f"Error executing action {action}: {e}")
