@@ -45,7 +45,7 @@ This project illustrates the construction of a simple Large Language Model (LLM)
    TAVILY_API_KEY=your_tavily_api_key_here
    ```
 
-   Note: The `.env` file is included in the `.gitignore` file to ensure your API keys are never accidentally committed to version control.
+   Note: Please check that the `.env` file is included in the `.gitignore` file to ensure your API keys are never accidentally committed to version control.
 
    Alternatively, you can set these as environment variables:
    ```bash
