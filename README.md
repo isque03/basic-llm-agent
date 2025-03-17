@@ -38,12 +38,24 @@ This project illustrates the construction of a simple Large Language Model (LLM)
    ```
 
 3. Set up your API keys:
+   
+   Create a `.env` file in the root directory with the following content:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   TAVILY_API_KEY=your_tavily_api_key_here
+   ```
+
+   Note: The `.env` file is included in the `.gitignore` file to ensure your API keys are never accidentally committed to version control.
+
+   Alternatively, you can set these as environment variables:
    ```bash
    export OPENAI_API_KEY=your_api_key_here
    export TAVILY_API_KEY=your_tavily_api_key_here
    ```
 
    You can obtain a Tavily API key by signing up at [https://tavily.com/](https://tavily.com/)
+   
+   You can obtain an OpenAI API key by signing up at [https://platform.openai.com/](https://platform.openai.com/)
 
 ## Usage
 
@@ -58,10 +70,6 @@ print(response)
 ```
 
 The repository includes both simple and advanced usage examples at the bottom of llm.py.
-
-## Credits
-This project was inspired by Aaron Dunn's excellent tutorial on building LLM agents:
-https://youtu.be/mYo7UFwnW1k?si=uSZ_fhA8rJPsApkz
 
 ## License
 MIT License
