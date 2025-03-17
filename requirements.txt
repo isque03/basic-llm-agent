@@ -1,0 +1,6 @@
+# Core dependencies
+openai>=1.0.0
+tavily-python>=0.5.1
+python-dotenv>=1.0.0
+yfinance>=0.2.54
+pandas>=2.0.3
